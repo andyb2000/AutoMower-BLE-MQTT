@@ -32,9 +32,6 @@ from asyncio_mqtt import Client as MQTTClient
 # ----------------------------
 # Logging
 # ----------------------------
-# ----------------------------
-# Logging
-# ----------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -170,12 +167,23 @@ async def ha_discovery(client, status):
             sensor_config["unit_of_measurement"] = "s"
         elif "NextStartSchedule" in key:
             sensor_config["device_class"] = "timestamp"
+        elif "LastError" in key:
+            sensor_config["icon"] = "mdi:alert"
+            sensor_config["entity_category"] = "diagnostic"
         elif "LastErrorSchedule" in key:
             sensor_config["device_class"] = "timestamp"
         elif "CurrUpdateSchedule" in key:
             sensor_config["device_class"] = "timestamp"
+        elif "Charging" in key:
+            sensor_config["component"] = "binary_sensor"
+            sensor_config["device_class"] = "battery_charging"
+        elif "State" in key:
+            sensor_config["icon"] = "mdi:state-machine"
+        elif "Activity" in key:
+            sensor_config["icon"] = "mdi:progress-clock"
         elif "Battery" in key:
             sensor_config["device_class"] = "battery"
+            sensor_config["unit_of_measurement"] = "%"
         elif "number" in key.lower():
             sensor_config["unit_of_measurement"] = None  # count
 
