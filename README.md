@@ -53,6 +53,9 @@ python3 mower_mqtt.py
 # Output
 The script will produce the following MQTT output in Home Assistant. You can then use the sensors as you wish. The two switches created are for PARK and MOW.
 
+<img width="1108" height="822" alt="image" src="https://github.com/user-attachments/assets/8e3147d8-f535-4794-806f-4e6774c1f1a6" />
+
+
 MowerState is probably the most important one to use in your automations, that will change to one of the following:
 | MowerState | Description |
 | :-------- | :-------------------------------- |
