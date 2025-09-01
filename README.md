@@ -91,3 +91,7 @@ Automower NextStartSchedule - Will show the next date and time set in the mowers
 
  - [Automower-BLE](https://github.com/alistair23/AutoMower-BLE/)
 
+## Changelog/Revisions
+
+- Added version to script for tracking (0.0.1)
+

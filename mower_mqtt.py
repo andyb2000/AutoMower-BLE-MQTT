@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+#  mower_mqtt.py by Andy Brown https://github.com/andyb2000/AutoMower-BLE-MQTT/
+# ------------------------------------------------------------------------------
+VERSION = "0.0.1"
+
 import asyncio
 import json
 import logging
@@ -17,14 +21,10 @@ if LOCAL_LIB not in sys.path:
 from automower_ble.mower import Mower
 from automower_ble.protocol import (
     BLEClient,
-    Command,
     MowerState,
     MowerActivity,
     ModeOfOperation,
-    ResponseResult,
-    TaskInformation,
 )
-from automower_ble.models import MowerModels
 from automower_ble.error_codes import ErrorCodes
 
 from asyncio_mqtt import Client as MQTTClient
@@ -32,7 +32,11 @@ from asyncio_mqtt import Client as MQTTClient
 # ----------------------------
 # Logging
 # ----------------------------
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 LOG = logging.getLogger("mower_mqtt")
 
 # ----------------------------
@@ -57,8 +61,8 @@ async def connect_mower():
     LOG.info("Connecting to mower...")
     device = await BleakScanner.find_device_by_address(MOWER_ADDRESS)
     if device is None:
-        print("Unable to connect to device address: " + mower.address)
-        print(
+        LOG.warn("Unable to connect to device address: " + mower.address)
+        LOG.warn(
             "Please make sure the device address is correct, the device is powered on and nearby"
         )
         LOG.warn("FAILED TO connect to mower")
@@ -163,12 +167,23 @@ async def ha_discovery(client, status):
             sensor_config["unit_of_measurement"] = "s"
         elif "NextStartSchedule" in key:
             sensor_config["device_class"] = "timestamp"
+        elif "LastError" in key:
+            sensor_config["icon"] = "mdi:alert"
+            sensor_config["entity_category"] = "diagnostic"
         elif "LastErrorSchedule" in key:
             sensor_config["device_class"] = "timestamp"
         elif "CurrUpdateSchedule" in key:
             sensor_config["device_class"] = "timestamp"
+        elif "Charging" in key:
+            sensor_config["component"] = "binary_sensor"
+            sensor_config["device_class"] = "battery_charging"
+        elif "State" in key:
+            sensor_config["icon"] = "mdi:state-machine"
+        elif "Activity" in key:
+            sensor_config["icon"] = "mdi:progress-clock"
         elif "Battery" in key:
             sensor_config["device_class"] = "battery"
+            sensor_config["unit_of_measurement"] = "%"
         elif "number" in key.lower():
             sensor_config["unit_of_measurement"] = None  # count
 
