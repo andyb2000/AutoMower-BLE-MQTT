@@ -32,7 +32,14 @@ from asyncio_mqtt import Client as MQTTClient
 # ----------------------------
 # Logging
 # ----------------------------
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+# ----------------------------
+# Logging
+# ----------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 LOG = logging.getLogger("mower_mqtt")
 
 # ----------------------------
