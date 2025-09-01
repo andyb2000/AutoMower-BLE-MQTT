@@ -55,6 +55,10 @@ The script will produce the following MQTT output in Home Assistant. You can the
 
 <img width="1108" height="822" alt="image" src="https://github.com/user-attachments/assets/8e3147d8-f535-4794-806f-4e6774c1f1a6" />
 
+Automower switch shows a power/off symbol which represents PARK.
+
+The power/on symbol represents MOW and will start a custom mow duration of 1 Hour.
+
 
 MowerState is probably the most important one to use in your automations, that will change to one of the following:
 | MowerState | Description |
@@ -68,6 +72,16 @@ MowerState is probably the most important one to use in your automations, that w
 | IN_OPERATION | Operating, the actual action is in MowerActivity |
 | RESTRICTED | Waiting for an action either in calendar or to release from PARK |
 | ERROR | An error has occurred and mower needs manual intervention |
+
+Other useful sensors:
+
+Automower Battery - in percentage
+
+Automower Charging - 1 for charging, 0 for not charging
+
+Automower CurrUpdateSchedule - Will show the last update from the mower via bluetooth, useful to check for freshness of data.
+
+Automower NextStartSchedule - Will show the next date and time set in the mowers internal scheduler to begin mowing.
 
 ## Authors
 
