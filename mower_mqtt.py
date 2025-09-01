@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+#  mower_mqtt.py by Andy Brown https://github.com/andyb2000/AutoMower-BLE-MQTT/
+# ------------------------------------------------------------------------------
+VERSION = "0.0.1"
+
 import asyncio
 import json
 import logging
@@ -17,14 +21,10 @@ if LOCAL_LIB not in sys.path:
 from automower_ble.mower import Mower
 from automower_ble.protocol import (
     BLEClient,
-    Command,
     MowerState,
     MowerActivity,
     ModeOfOperation,
-    ResponseResult,
-    TaskInformation,
 )
-from automower_ble.models import MowerModels
 from automower_ble.error_codes import ErrorCodes
 
 from asyncio_mqtt import Client as MQTTClient
@@ -57,8 +57,8 @@ async def connect_mower():
     LOG.info("Connecting to mower...")
     device = await BleakScanner.find_device_by_address(MOWER_ADDRESS)
     if device is None:
-        print("Unable to connect to device address: " + mower.address)
-        print(
+        LOG.warn("Unable to connect to device address: " + mower.address)
+        LOG.warn(
             "Please make sure the device address is correct, the device is powered on and nearby"
         )
         LOG.warn("FAILED TO connect to mower")
