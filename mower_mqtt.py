@@ -3,7 +3,7 @@
 
 #  mower_mqtt.py by Andy Brown https://github.com/andyb2000/AutoMower-BLE-MQTT/
 # ------------------------------------------------------------------------------
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 import asyncio
 import json
@@ -11,6 +11,8 @@ import logging
 import os
 import sys
 import datetime as dt
+import signal
+import time
 
 from bleak import BleakScanner
 
@@ -52,9 +54,100 @@ POLL_INTERVAL = int(os.getenv("MOWER_POLL", 60))
 MOWER_ADDRESS = os.getenv("MOWER_ADDRESS", "60:98:11:22:33:44")
 MOWER_PIN = int(os.getenv("MOWER_PIN", "1234"))
 
+WATCHDOG_TIMEOUT = 120  # seconds
+
+# ----------------------------
+# Shutdown handling
+# ----------------------------
+shutdown_event = asyncio.Event()
+
+
+def _handle_sigterm(*_):
+    LOG.warning("Received termination signal, shutting down...")
+    shutdown_event.set()
+
+
+signal.signal(signal.SIGINT, _handle_sigterm)
+signal.signal(signal.SIGTERM, _handle_sigterm)
+
+# ----------------------------
+# Watchdog
+# ----------------------------
+WATCHDOG_TIMEOUT = 120  # seconds
+last_progress = time.time()
+
+
+def watchdog_reset():
+    global last_progress
+    last_progress = time.time()
+    signal.alarm(WATCHDOG_TIMEOUT)
+
+
+async def watchdog_task(availability_topic: str):
+    """Background watchdog that exits if script hangs too long."""
+    while not shutdown_event.is_set():
+        await asyncio.sleep(30)
+        if time.time() - last_progress > WATCHDOG_TIMEOUT:
+            LOG.critical("Watchdog: No activity for %d seconds, shutting down!", WATCHDOG_TIMEOUT)
+            shutdown_event.set()
+            try:
+                async with MQTTClient(
+                    hostname=MQTT_BROKER,
+                    port=MQTT_PORT,
+                    username=MQTT_USERNAME,
+                    password=MQTT_PASSWORD,
+                ) as client:
+                    await client.publish(availability_topic, "offline", retain=True)
+            except Exception:
+                LOG.error("Failed to publish offline status to MQTT")
+            os._exit(1)
+
+
+def _sigalrm_handler(signum, frame):
+    LOG.critical("Signal alarm triggered: operation exceeded %d seconds", WATCHDOG_TIMEOUT)
+    shutdown_event.set()
+    os._exit(1)
+
+
+signal.signal(signal.SIGALRM, _sigalrm_handler)
+signal.alarm(WATCHDOG_TIMEOUT)
+
 # ----------------------------
 # Helper Functions
 # ----------------------------
+def watchdog_reset():
+    global last_progress
+    last_progress = time.time()
+async def watchdog_task(availability_topic: str):
+    """Background watchdog that exits if script hangs too long."""
+    while not shutdown_event.is_set():
+        await asyncio.sleep(30)
+        if time.time() - last_progress > WATCHDOG_TIMEOUT:
+            LOG.critical("Watchdog: No activity for %d seconds, shutting down!", WATCHDOG_TIMEOUT)
+            shutdown_event.set()
+            try:
+                async with MQTTClient(
+                    hostname=MQTT_BROKER,
+                    port=MQTT_PORT,
+                    username=MQTT_USERNAME,
+                    password=MQTT_PASSWORD,
+                ) as client:
+                    await client.publish(availability_topic, "offline", retain=True)
+            except Exception:
+                LOG.error("Failed to publish offline status to MQTT")
+            os._exit(1)  # hard exit to prevent zombie process
+
+
+def _sigalrm_handler(signum, frame):
+    LOG.critical("Signal alarm triggered: operation exceeded %d seconds", WATCHDOG_TIMEOUT)
+    shutdown_event.set()
+    os._exit(1)
+
+
+# Enable POSIX alarm watchdog
+signal.signal(signal.SIGALRM, _sigalrm_handler)
+signal.alarm(WATCHDOG_TIMEOUT)
+
 async def connect_mower():
     LOG.info("Creating Mower instance...")
     mower = Mower(1197489078, MOWER_ADDRESS, MOWER_PIN)
@@ -66,9 +159,11 @@ async def connect_mower():
             "Please make sure the device address is correct, the device is powered on and nearby"
         )
         LOG.warn("FAILED TO connect to mower")
+        shutdown_event.set()
         return
     await mower.connect(device)
     LOG.info("BLE connection established ✅")
+    watchdog_reset()
     return mower
 
 async def collect_status(mower):
@@ -94,6 +189,7 @@ async def collect_status(mower):
             data["LastErrorSchedule"] = dt.datetime.fromtimestamp(int(last_error_data["time"]), tz=dt.timezone.utc).isoformat()
             data["CurrUpdateSchedule"] = dt.datetime.now(tz=dt.timezone.utc).isoformat()
             status.update(data)
+            watchdog_reset()
     except Exception as e:
         LOG.warning("Failed to get status: %s", e)
     return status
@@ -111,6 +207,7 @@ async def send_command(mower, cmd):
         await mower.command("SetOverrideMow", duration=int(3600))
         await mower.command("StartTrigger")
         LOG.info("Mower StartTrigger sent")
+        watchdog_reset()
         return
     elif cmd == "PARK":
 #        for f in ["park", "return_to_base", "dock"]:
@@ -120,6 +217,7 @@ async def send_command(mower, cmd):
 #                await fn() if asyncio.iscoroutinefunction(fn) else fn()
         await mower.command("SetOverrideParkUntilNextStart")
         LOG.info("Mower SetOverrideParkUntilNextStart sent")
+        watchdog_reset()
         return
     LOG.warning("Unknown command: %s", cmd)
 
@@ -193,6 +291,7 @@ async def ha_discovery(client, status):
             retain=True
         )
         LOG.info("Published HA discovery for sensor: %s", key)
+        watchdog_reset()
 
 # ----------------------------
 # Main Async Loop
@@ -201,7 +300,7 @@ async def main():
     mower = await connect_mower()
     known_keys = set()
 
-    while True:
+    while not shutdown_event.is_set():
         try:
 
             async with MQTTClient(
@@ -225,7 +324,7 @@ async def main():
                     # Status publishing loop
                     async def status_loop():
                         nonlocal known_keys
-                        while True:
+                        while not shutdown_event.is_set():
                             status = await collect_status(mower)
                             if status:
                                 # Update HA discovery if new keys appear
@@ -249,6 +348,8 @@ async def main():
 
                     # Handle incoming MQTT messages
                     async for msg in messages:
+                        if shutdown_event.is_set():
+                            breal
                         try:
                             payload = msg.payload.decode().strip()
                             LOG.info("Received MQTT command: %s", payload)
@@ -261,6 +362,18 @@ async def main():
         except MqttError as e:
             LOG.error("MQTT loop error: %s; reconnecting in 5s", e)
             await asyncio.sleep(5)
+        except Exception:
+            LOG.exception("Unexpected main loop error")
+            await asyncio.sleep(5)
+    LOG.info("Shutting down...")
+    with contextlib.suppress(Exception):
+        async with MQTTClient(
+            hostname=MQTT_BROKER,
+            port=MQTT_PORT,
+            username=MQTT_USERNAME,
+            password=MQTT_PASSWORD,
+        ) as client:
+            await client.publish(availability_topic, "offline", retain=True)
 
 # ----------------------------
 # Run
