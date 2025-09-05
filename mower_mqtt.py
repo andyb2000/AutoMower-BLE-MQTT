@@ -59,11 +59,20 @@ CFG = Config()
 # ----------------------------
 shutdown_event = asyncio.Event()
 
+async def shutdown():
+    LOG.info("Shutting down tasks...")
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    LOG.info("All tasks cancelled.")
 
 def _handle_sigterm(*_):
     LOG.warning("Received termination signal, shutting down...")
     shutdown_event.set()
-
+    # Stop the event loop
+    loop = asyncio.get_event_loop()
+    loop.create_task(shutdown())
 
 signal.signal(signal.SIGINT, _handle_sigterm)
 signal.signal(signal.SIGTERM, _handle_sigterm)
