@@ -163,7 +163,7 @@ async def collect_status(mower: Mower) -> Dict[str, Any]:
 
         status.update(
             Battery=str(battery),
-            Charging=str(charging),
+            Charging="ON" if charging else "OFF",
             State=MowerState(state).name,
             Activity=MowerActivity(activity).name,
             NextStartSchedule=dt.datetime.fromtimestamp(int(next_start), tz=dt.timezone.utc).isoformat(),
@@ -238,7 +238,7 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
 
     sensor_mappings = {
         "Battery": {"device_class": "battery", "unit_of_measurement": "%"},
-        "Charging": {"component": "binary_sensor", "device_class": "battery_charging"},
+        "Charging": {"component": "binary_sensor", "device_class": "battery_charging", "payload_on": "ON", "payload_off": "OFF"},
         "State": {"icon": "mdi:state-machine"},
         "Activity": {"icon": "mdi:progress-clock"},
         "LastError": {"icon": "mdi:alert", "entity_category": "diagnostic"},
