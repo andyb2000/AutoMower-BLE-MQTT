@@ -13,6 +13,7 @@ import sys
 import datetime as dt
 import signal
 import time
+import contextlib
 
 from bleak import BleakScanner
 
@@ -54,7 +55,7 @@ POLL_INTERVAL = int(os.getenv("MOWER_POLL", 60))
 MOWER_ADDRESS = os.getenv("MOWER_ADDRESS", "60:98:11:22:33:44")
 MOWER_PIN = int(os.getenv("MOWER_PIN", "1234"))
 
-WATCHDOG_TIMEOUT = 120  # seconds
+WATCHDOG_TIMEOUT = 240  # seconds
 
 # ----------------------------
 # Shutdown handling
@@ -154,11 +155,11 @@ async def connect_mower():
     LOG.info("Connecting to mower...")
     device = await BleakScanner.find_device_by_address(MOWER_ADDRESS)
     if device is None:
-        LOG.warn("Unable to connect to device address: " + mower.address)
-        LOG.warn(
+        LOG.warning("Unable to connect to device address: " + mower.address)
+        LOG.warning(
             "Please make sure the device address is correct, the device is powered on and nearby"
         )
-        LOG.warn("FAILED TO connect to mower")
+        LOG.warning("FAILED TO connect to mower")
         shutdown_event.set()
         return
     await mower.connect(device)
@@ -335,6 +336,7 @@ async def main():
                                     known_keys.update(new_keys)
                                 # Publish current status
                                 LOG.info("Publishing status: %s", status)
+                                watchdog_reset()
                                 try:
                                     await client.publish(
                                         f"{MQTT_BASE_TOPIC}/status",
