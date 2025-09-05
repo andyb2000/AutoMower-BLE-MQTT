@@ -344,6 +344,7 @@ async def main():
                                     )
                                 except MqttError as e:
                                     LOG.error("MQTT publish error: %s", e)
+                            watchdog_reset()
                             await asyncio.sleep(POLL_INTERVAL)
 
                     loop_task = asyncio.create_task(status_loop())
