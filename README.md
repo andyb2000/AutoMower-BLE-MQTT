@@ -95,4 +95,4 @@ Automower NextStartSchedule - Will show the next date and time set in the mowers
 
 - Added version to script for tracking (0.0.1)
 - 0.0.2 Add watchdog to main process so if it fails or hangs it will interrupt and gracefully exit setting HASS to offline state
-
+- 0.0.3 improvement to watchdog timer as it triggers when bluetooth comms going on
