@@ -145,6 +145,8 @@ async def safe_mower_command(mower: Mower, cmd: str, **kwargs) -> Any:
             LOG.error("Mower command %s failed: %s (attempt %d/%d)", cmd, e, attempt, retries)
         await asyncio.sleep(2 * attempt)  # backoff
     LOG.critical("Mower unresponsive after %d attempts, exiting.", retries)
+    """Exit immediately to avoid hanging."""
+    sys.exit()
     shutdown_event.set()
     return None
 
