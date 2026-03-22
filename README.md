@@ -19,11 +19,16 @@ You will need several python libraries:
 Install these using your package manager or pip3.
 If you are on a Raspberry Pi then use your package manager to install as this is the preferred method.
 
-# Create a virtual environment
+# Clone this repo
 ```bash
-:/ $ cd ~
-:~ $ python3 -m venv .venv
-:/ $ source ~/.venv/bin/activate
+git clone https://github.com/andyb2000/AutoMower-BLE-MQTT.git
+cd AutoMower-BLE-MQTT
+```
+
+# Create a virtual environment (Inside our git clone root)
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 # Install packages
 ```bash
@@ -35,6 +40,10 @@ If you are on a Raspberry Pi then use your package manager to install as this is
 
 # Configuration
 Modify my script to change the variables near the start for your environment.
+OR, set environment variables to your shell by doing this for each one:
+```bash
+export MQTT_USERNAME="example"
+```
 
 | Configuration | Env value     | Description                       |
 | :-------- | :------- | :-------------------------------- |
@@ -68,9 +77,9 @@ After=network.target bluetooth.target
 [Service]
 Type=simple
 User=<user>
-WorkingDirectory=/home/<user>
+WorkingDirectory=/home/<user>/AutoMower-BLE-MQTT
 # Using the python executable inside your .venv ensures all libraries are found
-ExecStart=/home/<user>/.venv/bin/python3 /home/<user>/mower_mqtt.py
+ExecStart=/home/<user>/AutoMower-BLE-MQTT/.venv/bin/python3 /home/<user>/AutoMower-BLE-MQTT/mower_mqtt.py
 Restart=always
 RestartSec=20
 
