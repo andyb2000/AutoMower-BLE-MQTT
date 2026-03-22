@@ -13,21 +13,25 @@ You will need several python libraries:
 `bleak`
 `asyncio`
 `json`
-`asyncio_mqtt`
+`aiomqtt`
 `automower_ble`
 
 Install these using your package manager or pip3.
 If you are on a Raspberry Pi then use your package manager to install as this is the preferred method.
+
+# Create a virtual environment
 ```bash
-apt-get install python3-bleak
-apt-get install python3-asyncio_mqtt
+:/ $ cd ~
+:~ $ python3 -m venv .venv
+:/ $ source ~/.venv/bin/activate
 ```
-Then install from pip the automower library:
+# Install packages
 ```bash
-pip3 install automower-ble --break-system-packages
+(.venv):~ $ pip3 install automower-ble
+(.venv):~ $ pip3 install bleak
+(.venv):~ $ pip3 install asyncio
+(.venv):~ $ pip3 install aiomqtt
 ```
-(Notice the --break-system-packages that's because on debian-based systems you are asked to use the apt-get method, however not all
-python libraries are available/debian packaged)
 
 # Configuration
 Modify my script to change the variables near the start for your environment.
@@ -48,6 +52,42 @@ Modify my script to change the variables near the start for your environment.
 To use, simply run the script:
 ```bash
 python3 mower_mqtt.py
+```
+# To configure as a service
+Create the Service File
+```bash
+sudo nano /etc/systemd/system/mower-mqtt.service
+```
+
+Paste, updating the <user> fields
+```bash
+[Unit]
+Description=Husqvarna Automower BLE to MQTT Bridge
+After=network.target bluetooth.target
+
+[Service]
+Type=simple
+User=<user>
+WorkingDirectory=/home/<user>
+# Using the python executable inside your .venv ensures all libraries are found
+ExecStart=/home/<user>/.venv/bin/python3 /home/<user>/mower_mqtt.py
+Restart=always
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and Start
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable mower-mqtt.service
+sudo systemctl start mower-mqtt.service
+```
+
+How to check on it
+```bash
+journalctl -u mower-mqtt.service -f
 ```
 
 # Output
