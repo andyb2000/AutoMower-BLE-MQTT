@@ -181,6 +181,13 @@ async def collect_status(mower: Mower) -> Dict[str, Any]:
             LastError=ErrorCodes(last_error["code"]).name,
             LastErrorSchedule=dt.datetime.fromtimestamp(int(last_error["time"]), tz=dt.timezone.utc).isoformat(),
             CurrUpdateSchedule=dt.datetime.now(tz=dt.timezone.utc).isoformat(),
+            totalRunningTime=data.get("totalRunningTime", 0),
+            totalCuttingTime=data.get("totalCuttingTime", 0),
+            totalChargingTime=data.get("totalChargingTime", 0),
+            totalSearchingTime=data.get("totalSearchingTime", 0),
+            numberOfCollisions=data.get("numberOfCollisions", 0),
+            numberOfChargingCycles=data.get("numberOfChargingCycles", 0),
+            cuttingBladeUsageTime=data.get("cuttingBladeUsageTime", 0)
         )
 
         LOG.info(
@@ -256,6 +263,13 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         "NextStartSchedule": {"device_class": "timestamp"},
         "LastErrorSchedule": {"device_class": "timestamp", "entity_category": "diagnostic"},
         "CurrUpdateSchedule": {"device_class": "timestamp", "entity_category": "diagnostic"},
+        "totalRunningTime": {"device_class": "duration", "unit_of_measurement": "s"},
+        "totalCuttingTime": {"device_class": "duration", "unit_of_measurement": "s"},
+        "totalChargingTime": {"device_class": "duration", "unit_of_measurement": "s"},
+        "totalSearchingTime": {"device_class": "duration", "unit_of_measurement": "s"},
+        "numberOfCollisions": {"device_class": "count"},
+        "numberOfChargingCycles": {"device_class": "count"},
+        "cuttingBladeUsageTime": {"device_class": "duration", "unit_of_measurement": "s"}
     }
 
     for key in status.keys():
