@@ -279,15 +279,15 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         )
         LOG.debug("Published HA discovery for %s (%s)", key, component)
 
-    # Now map an input for mow duration custom time (in minutes)
+    # Now map an input for mow duration custom time (in seconds)
     select_config = {
-        "name": "Automower Mow Duration Override (minutes)",
+        "name": "Automower Mow Duration Override (seconds)",
         "unique_id": "automower_duration_select",
         "command_topic": f"{CFG.mqtt_base_topic}/set/custom_value",
         "state_topic": f"{CFG.mqtt_base_topic}/state/custom_value",
-        "options": ["60", "120", "300"],
+        "options": ["3600", "7200", "14400", "28800"],  # 1h, 2h, 4h, 8h in seconds
         "device_class": "duration",  # or None if not applicable
-        "entity_category": "config",
+        "entity_category": "controls",
         "device": device_info,
     }
     await client.publish(
