@@ -83,6 +83,8 @@ signal.signal(signal.SIGTERM, _handle_sigterm)
 WATCHDOG_TIMEOUT = 180  # seconds before we assume total deadlock
 last_heartbeat = 0
 
+custom_mow_duration = 3600  # default
+
 
 def watchdog_reset():
     global last_heartbeat
@@ -209,7 +211,7 @@ async def send_command(mower: Mower, cmd: str) -> None:
         if cmd == "MOW":
             LOG.info("Mower start sequence initiated")
             await mower.command("SetMode", mode=ModeOfOperation.AUTO)
-            await mower.command("SetOverrideMow", duration=3600)
+            await mower.command("SetOverrideMow", duration=custom_mow_duration)
             await mower.command("StartTrigger")
             LOG.info("Mower started ✅")
         elif cmd == "PARK":
@@ -319,6 +321,11 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         json.dumps(select_config),
         retain=True,
     )
+    await client.publish(
+        f"{CFG.mqtt_base_topic}/state/custom_value",
+        str(custom_mow_duration),
+        retain=True,
+    )
     LOG.debug("Published HA discovery for custom_value")
     
 
@@ -388,16 +395,16 @@ async def main() -> None:
                     if topic.endswith("/custom_value"):
                         LOG.info("MQTT custom value received: %s", payload)
                         try:
-                            mow_override_seconds = int(payload)
-                            if mow_override_seconds < 0 or mow_override_seconds > 28800:
-                                LOG.warning("Custom value out of range: %d", mow_override_seconds)
+                            custom_mow_duration = int(payload)
+                            if custom_mow_duration < 0 or custom_mow_duration > 28800:
+                                LOG.warning("Custom value out of range: %d", custom_mow_duration)
                                 continue
-                            await mower.command("SetOverrideMow", duration=mow_override_seconds)
-                            LOG.info("Set custom mow duration: %d seconds", mow_override_seconds)
+                            await mower.command("SetOverrideMow", duration=custom_mow_duration)
+                            LOG.info("Set custom mow duration: %d seconds", custom_mow_duration)
                             # Send state back to HA
                             await client.publish(
                                 f"{CFG.mqtt_base_topic}/state/custom_value",
-                                str(mow_override_seconds),
+                                str(custom_mow_duration),
                                 retain=True
                             )
                         except ValueError:
