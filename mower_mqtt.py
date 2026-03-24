@@ -277,6 +277,26 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
             json.dumps(sensor_config),
             retain=True,
         )
+
+    # Now map an input for mow duration custom time (in minutes)
+    number_config = {
+        "name": "Automower Custom Value",
+        "unique_id": "automower_custom_value_01",
+        "command_topic": f"{CFG.mqtt_base_topic}/set/custom_value",
+        "state_topic": f"{CFG.mqtt_base_topic}/state/custom_value",
+        "availability_topic": availability_topic,
+        "min": 0,
+        "max": 10000,
+        "step": 60,
+        "mode": "box",
+        "device": device_info,
+    }
+    await client.publish(
+        "homeassistant/{component}/automower_ble_{key.lower()}/config",
+        json.dumps(number_config),
+        retain=True,
+    )
+
         LOG.debug("Published HA discovery for %s (%s)", key, component)
 
 
@@ -308,6 +328,9 @@ async def main() -> None:
                 await client.subscribe(f"{CFG.mqtt_base_topic}/command")
                 LOG.info("Subscribed to %s/command", CFG.mqtt_base_topic)
 
+                await client.subscribe(f"{CFG.mqtt_base_topic}/custom_value")
+                LOG.info("Subscribed to %s/custom_value", CFG.mqtt_base_topic)
+
                 status = await collect_status(mower)
                 if status:
                     known_keys.update(status.keys())
@@ -338,9 +361,29 @@ async def main() -> None:
                 async for msg in client.messages:
                     if shutdown_event.is_set():
                         break
+                    topic = msg.topic.value
                     payload = msg.payload.decode().strip()
-                    LOG.info("MQTT command received: %s", payload)
-                    await send_command(mower, payload)
+                    if topic.endswith("/custom_value"):
+                        LOG.info("MQTT custom value received: %s", payload)
+                        try:
+                            minutes = int(payload)
+                            if minutes < 0 or minutes > 10000:
+                                LOG.warning("Custom value out of range: %d", minutes)
+                                continue
+                            await mower.command("SetOverrideMow", duration=minutes * 60)
+                            LOG.info("Set custom mow duration: %d minutes", minutes)
+                            # Send state back to HA
+                            await client.publish(
+                                f"{CFG.mqtt_base_topic}/state/custom_value",
+                                str(value),
+                                retain=True
+                            )
+                        except ValueError:
+                            LOG.warning("Invalid custom value received: %s", payload)
+                        continue
+                    if topic.endswith("/command"):
+                        LOG.info("MQTT command received: %s", payload)
+                        await send_command(mower, payload)
                     watchdog_reset()
 
                 await loop_task
