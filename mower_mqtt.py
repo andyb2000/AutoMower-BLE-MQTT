@@ -237,20 +237,30 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
     await client.publish(availability_topic, "online", retain=True)
 
     # Binary switch
-    switch_config = {
-        "name": "Automower Control",
+    mow_button = {
+        "name": "Mow",
         "command_topic": f"{CFG.mqtt_base_topic}/command",
-        "state_topic": f"{CFG.mqtt_base_topic}/status",
-        "availability_topic": availability_topic,
+        "payload_press": "MOW",
         "icon": "mdi:robot-mower",
-        "payload_on": "MOW",
-        "payload_off": "PARK",
-        "unique_id": "automower_switch_01",
+        "unique_id": "automower_mow_btn",
         "device": device_info,
     }
     await client.publish(
-        "homeassistant/switch/automower_ble/config",
-        json.dumps(switch_config),
+        "homeassistant/button/automower_ble_mow/config",
+        json.dumps(mow_button),
+        retain=True,
+    )
+    park_button = {
+        "name": "Park",
+        "command_topic": f"{CFG.mqtt_base_topic}/command",
+        "payload_press": "PARK",
+        "icon": "mdi:home",
+        "unique_id": "automower_park_btn",
+        "device": device_info,
+    }
+    await client.publish(
+        "homeassistant/button/automower_ble_park/config",
+        json.dumps(park_button),
         retain=True,
     )
 
@@ -269,7 +279,7 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         "totalSearchingTime": {"device_class": "duration", "unit_of_measurement": "s", "icon": "mdi:compass"},
         "numberOfCollisions": {"icon": "mdi:counter"},
         "numberOfChargingCycles": {"icon": "mdi:ev-station"},
-        "cuttingBladeUsageTime": {"device_class": "duration", "unit_of_measurement": "s", "icon": "mdi:blades"},
+        "cuttingBladeUsageTime": {"device_class": "duration", "unit_of_measurement": "s", "icon": "mdi:saw-blade"},
     }
 
     for key in status.keys():
