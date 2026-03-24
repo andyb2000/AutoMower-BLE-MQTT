@@ -287,7 +287,7 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         "state_topic": f"{CFG.mqtt_base_topic}/state/custom_value",
         "options": ["3600", "7200", "14400", "28800"],  # 1h, 2h, 4h, 8h in seconds
         "device_class": "duration",  # or None if not applicable
-        "entity_category": "controls",
+        "entity_category": "config",
         "device": device_info,
     }
     await client.publish(
@@ -364,16 +364,16 @@ async def main() -> None:
                     if topic.endswith("/custom_value"):
                         LOG.info("MQTT custom value received: %s", payload)
                         try:
-                            minutes = int(payload)
-                            if minutes < 0 or minutes > 10000:
-                                LOG.warning("Custom value out of range: %d", minutes)
+                            mow_override_seconds = int(payload)
+                            if mow_override_seconds < 0 or mow_override_seconds > 28800:
+                                LOG.warning("Custom value out of range: %d", mow_override_seconds)
                                 continue
-                            await mower.command("SetOverrideMow", duration=minutes * 60)
-                            LOG.info("Set custom mow duration: %d minutes", minutes)
+                            await mower.command("SetOverrideMow", duration=mow_override_seconds)
+                            LOG.info("Set custom mow duration: %d seconds", mow_override_seconds)
                             # Send state back to HA
                             await client.publish(
                                 f"{CFG.mqtt_base_topic}/state/custom_value",
-                                str(value),
+                                str(mow_override_seconds),
                                 retain=True
                             )
                         except ValueError:
