@@ -277,6 +277,7 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
             json.dumps(sensor_config),
             retain=True,
         )
+        LOG.debug("Published HA discovery for %s (%s)", key, component)
 
     # Now map an input for mow duration custom time (in minutes)
     number_config = {
@@ -296,9 +297,8 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         json.dumps(number_config),
         retain=True,
     )
-
-        LOG.debug("Published HA discovery for %s (%s)", key, component)
-
+    LOG.debug("Published HA discovery for custom_value")
+    
 
 # ----------------------------
 # Main Loop
