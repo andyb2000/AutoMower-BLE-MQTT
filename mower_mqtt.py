@@ -263,13 +263,13 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         "NextStartSchedule": {"device_class": "timestamp", "icon": "mdi:calendar-clock"},
         "LastErrorSchedule": {"device_class": "timestamp", "entity_category": "diagnostic"},
         "CurrUpdateSchedule": {"device_class": "timestamp", "entity_category": "diagnostic"},
-        "totalRunningTime": {"device_class": "duration", "unit_of_measurement": "s"},
-        "totalCuttingTime": {"device_class": "duration", "unit_of_measurement": "s"},
-        "totalChargingTime": {"device_class": "duration", "unit_of_measurement": "s"},
-        "totalSearchingTime": {"device_class": "duration", "unit_of_measurement": "s"},
+        "totalRunningTime": {"device_class": "duration", "unit_of_measurement": "s", "state_class": "total_increasing"},
+        "totalCuttingTime": {"device_class": "duration", "unit_of_measurement": "s", "state_class": "total_increasing"},
+        "totalChargingTime": {"device_class": "duration", "unit_of_measurement": "s", "state_class": "total_increasing"},
+        "totalSearchingTime": {"device_class": "duration", "unit_of_measurement": "s", "state_class": "total_increasing"},
         "numberOfCollisions": {"icon": "mdi:counter"},
         "numberOfChargingCycles": {"icon": "mdi:ev-station"},
-        "cuttingBladeUsageTime": {"device_class": "duration", "unit_of_measurement": "s"}
+        "cuttingBladeUsageTime": {"device_class": "duration", "unit_of_measurement": "s", "state_class": "total_increasing"}
     }
 
     for key in status.keys():
