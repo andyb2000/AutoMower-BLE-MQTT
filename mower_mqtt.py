@@ -280,21 +280,19 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         LOG.debug("Published HA discovery for %s (%s)", key, component)
 
     # Now map an input for mow duration custom time (in minutes)
-    number_config = {
-        "name": "Automower Custom Value",
-        "unique_id": "automower_custom_value_01",
+    select_config = {
+        "name": "Automower Mow Duration Override (minutes)",
+        "unique_id": "automower_duration_select",
         "command_topic": f"{CFG.mqtt_base_topic}/set/custom_value",
         "state_topic": f"{CFG.mqtt_base_topic}/state/custom_value",
-        "availability_topic": availability_topic,
-        "min": 0,
-        "max": 10000,
-        "step": 60,
-        "mode": "box",
+        "options": ["60", "120", "300"],
+        "device_class": "duration",  # or None if not applicable
+        "entity_category": "config",
         "device": device_info,
     }
     await client.publish(
-        "homeassistant/{component}/automower_ble_{key.lower()}/config",
-        json.dumps(number_config),
+        "homeassistant/select/automower_ble_duration_select/config",
+        json.dumps(select_config),
         retain=True,
     )
     LOG.debug("Published HA discovery for custom_value")
