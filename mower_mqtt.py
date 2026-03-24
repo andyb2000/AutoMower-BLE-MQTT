@@ -267,7 +267,7 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         "totalCuttingTime": {"device_class": "duration", "unit_of_measurement": "s"},
         "totalChargingTime": {"device_class": "duration", "unit_of_measurement": "s"},
         "totalSearchingTime": {"device_class": "duration", "unit_of_measurement": "s"},
-        "numberOfCollisions": {"icon": "mdi:car-collision"},
+        "numberOfCollisions": {"icon": "mdi:counter"},
         "numberOfChargingCycles": {"icon": "mdi:ev-station"},
         "cuttingBladeUsageTime": {"device_class": "duration", "unit_of_measurement": "s"}
     }
