@@ -3,7 +3,7 @@
 
 #  mower_mqtt.py by Andy Brown https://github.com/andyb2000/AutoMower-BLE-MQTT/
 # ------------------------------------------------------------------------------
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 
 import asyncio
 import json
@@ -82,6 +82,8 @@ signal.signal(signal.SIGTERM, _handle_sigterm)
 # ----------------------------
 WATCHDOG_TIMEOUT = 180  # seconds before we assume total deadlock
 last_heartbeat = 0
+
+custom_mow_duration = 3600  # default
 
 
 def watchdog_reset():
@@ -181,6 +183,13 @@ async def collect_status(mower: Mower) -> Dict[str, Any]:
             LastError=ErrorCodes(last_error["code"]).name,
             LastErrorSchedule=dt.datetime.fromtimestamp(int(last_error["time"]), tz=dt.timezone.utc).isoformat(),
             CurrUpdateSchedule=dt.datetime.now(tz=dt.timezone.utc).isoformat(),
+            totalRunningTime=data.get("totalRunningTime", 0),
+            totalCuttingTime=data.get("totalCuttingTime", 0),
+            totalChargingTime=data.get("totalChargingTime", 0),
+            totalSearchingTime=data.get("totalSearchingTime", 0),
+            numberOfCollisions=data.get("numberOfCollisions", 0),
+            numberOfChargingCycles=data.get("numberOfChargingCycles", 0),
+            cuttingBladeUsageTime=data.get("cuttingBladeUsageTime", 0)
         )
 
         LOG.info(
@@ -202,7 +211,7 @@ async def send_command(mower: Mower, cmd: str) -> None:
         if cmd == "MOW":
             LOG.info("Mower start sequence initiated")
             await mower.command("SetMode", mode=ModeOfOperation.AUTO)
-            await mower.command("SetOverrideMow", duration=3600)
+            await mower.command("SetOverrideMow", duration=custom_mow_duration)
             await mower.command("StartTrigger")
             LOG.info("Mower started ✅")
         elif cmd == "PARK":
@@ -230,20 +239,30 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
     await client.publish(availability_topic, "online", retain=True)
 
     # Binary switch
-    switch_config = {
-        "name": "Automower Control",
+    mow_button = {
+        "name": "Mow",
         "command_topic": f"{CFG.mqtt_base_topic}/command",
-        "state_topic": f"{CFG.mqtt_base_topic}/status",
-        "availability_topic": availability_topic,
+        "payload_press": "MOW",
         "icon": "mdi:robot-mower",
-        "payload_on": "MOW",
-        "payload_off": "PARK",
-        "unique_id": "automower_switch_01",
+        "unique_id": "automower_mow_btn",
         "device": device_info,
     }
     await client.publish(
-        "homeassistant/switch/automower_ble/config",
-        json.dumps(switch_config),
+        "homeassistant/button/automower_ble_mow/config",
+        json.dumps(mow_button),
+        retain=True,
+    )
+    park_button = {
+        "name": "Park",
+        "command_topic": f"{CFG.mqtt_base_topic}/command",
+        "payload_press": "PARK",
+        "icon": "mdi:home",
+        "unique_id": "automower_park_btn",
+        "device": device_info,
+    }
+    await client.publish(
+        "homeassistant/button/automower_ble_park/config",
+        json.dumps(park_button),
         retain=True,
     )
 
@@ -253,9 +272,16 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         "State": {"icon": "mdi:state-machine"},
         "Activity": {"icon": "mdi:progress-clock"},
         "LastError": {"icon": "mdi:alert", "entity_category": "diagnostic"},
-        "NextStartSchedule": {"device_class": "timestamp"},
+        "NextStartSchedule": {"device_class": "timestamp", "icon": "mdi:calendar-clock"},
         "LastErrorSchedule": {"device_class": "timestamp", "entity_category": "diagnostic"},
         "CurrUpdateSchedule": {"device_class": "timestamp", "entity_category": "diagnostic"},
+        "totalRunningTime": {"device_class": "duration", "unit_of_measurement": "s", "icon": "mdi:timer"},
+        "totalCuttingTime": {"device_class": "duration", "unit_of_measurement": "s", "icon": "mdi:grass"},
+        "totalChargingTime": {"device_class": "duration", "unit_of_measurement": "s", "icon": "mdi:power-plug"},
+        "totalSearchingTime": {"device_class": "duration", "unit_of_measurement": "s", "icon": "mdi:compass"},
+        "numberOfCollisions": {"icon": "mdi:counter"},
+        "numberOfChargingCycles": {"icon": "mdi:ev-station"},
+        "cuttingBladeUsageTime": {"device_class": "duration", "unit_of_measurement": "s", "icon": "mdi:saw-blade"},
     }
 
     for key in status.keys():
@@ -279,6 +305,29 @@ async def ha_discovery(client: aiomqtt.Client, status: Dict[str, Any]) -> None:
         )
         LOG.debug("Published HA discovery for %s (%s)", key, component)
 
+    # Now map an input for mow duration custom time (in seconds)
+    select_config = {
+        "name": "Automower Mow Duration Override (seconds)",
+        "unique_id": "automower_duration_select",
+        "command_topic": f"{CFG.mqtt_base_topic}/set/custom_value",
+        "state_topic": f"{CFG.mqtt_base_topic}/state/custom_value",
+        "options": ["3600", "7200", "14400", "28800"],  # 1h, 2h, 4h, 8h in seconds
+        "device_class": "duration",  # or None if not applicable
+        "entity_category": "config",
+        "device": device_info,
+    }
+    await client.publish(
+        "homeassistant/select/automower_ble_duration_select/config",
+        json.dumps(select_config),
+        retain=True,
+    )
+    await client.publish(
+        f"{CFG.mqtt_base_topic}/state/custom_value",
+        str(custom_mow_duration),
+        retain=True,
+    )
+    LOG.debug("Published HA discovery for custom_value")
+    
 
 # ----------------------------
 # Main Loop
@@ -307,6 +356,9 @@ async def main() -> None:
 
                 await client.subscribe(f"{CFG.mqtt_base_topic}/command")
                 LOG.info("Subscribed to %s/command", CFG.mqtt_base_topic)
+
+                await client.subscribe(f"{CFG.mqtt_base_topic}/custom_value")
+                LOG.info("Subscribed to %s/custom_value", CFG.mqtt_base_topic)
 
                 status = await collect_status(mower)
                 if status:
@@ -338,9 +390,29 @@ async def main() -> None:
                 async for msg in client.messages:
                     if shutdown_event.is_set():
                         break
+                    topic = msg.topic.value
                     payload = msg.payload.decode().strip()
-                    LOG.info("MQTT command received: %s", payload)
-                    await send_command(mower, payload)
+                    if topic.endswith("/custom_value"):
+                        LOG.info("MQTT custom value received: %s", payload)
+                        try:
+                            custom_mow_duration = int(payload)
+                            if custom_mow_duration < 0 or custom_mow_duration > 28800:
+                                LOG.warning("Custom value out of range: %d", custom_mow_duration)
+                                continue
+                            await mower.command("SetOverrideMow", duration=custom_mow_duration)
+                            LOG.info("Set custom mow duration: %d seconds", custom_mow_duration)
+                            # Send state back to HA
+                            await client.publish(
+                                f"{CFG.mqtt_base_topic}/state/custom_value",
+                                str(custom_mow_duration),
+                                retain=True
+                            )
+                        except ValueError:
+                            LOG.warning("Invalid custom value received: %s", payload)
+                        continue
+                    if topic.endswith("/command"):
+                        LOG.info("MQTT command received: %s", payload)
+                        await send_command(mower, payload)
                     watchdog_reset()
 
                 await loop_task
